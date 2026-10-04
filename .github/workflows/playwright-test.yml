@@ -1,0 +1,54 @@
+name: Playwright Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+  # GitHub Actions schedules use UTC; 18:00 UTC is noon CST (UTC-6).
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  playwright-tests:
+    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest #linux environment for running the tests
+    timeout-minutes: 30
+    env:
+      PRACTICE_USERNAME: ${{ secrets.PRACTICE_USERNAME }}
+      PRACTICE_PASSWORD: ${{ secrets.PRACTICE_PASSWORD }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci  # Install project dependencies
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium  # Install Chromium browser for Playwright tests
+
+      - name: Run Playwright tests
+        run: npm run tests:headless  # Execute Playwright tests in headless mode
+
+      - name: Upload Playwright report
+        if: always()  # Ensure the report is uploaded even if tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report  # Name of the uploaded artifact
+          path: playwright-report/  # Path to the Playwright report directory
+          if-no-files-found: ignore  # Ignore if no report files are found
+
